@@ -8,6 +8,7 @@ from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from dotenv import load_dotenv
+import json 
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for the entire app
@@ -75,7 +76,7 @@ def vectorsearch(query: str, data: dict) -> str:
                 "title": doc.metadata.get("post_title"),
                 "url": doc.metadata.get("guid"),
                 "image": doc.metadata.get("essb_cached_image"),
-                "source": "vectorstore"
+                # "source": "vectorstore"
             }
             for doc, score in similarity_search_results
         ]
@@ -89,11 +90,52 @@ def update_keys(items):
     for item in items:
         updated_item = {
             'title': item.title,
-            'image': item.ingredients,  
-            'url': item.recipe         
+            'ingredients': item.ingredients,  
+            'recipe': item.recipe         
         }
         updated_items.append(updated_item)
     return updated_items
+
+# # Function to generate items if vector search yields no results
+# def generate_items(data: dict, input: str) -> List[Item]:
+#     number_of_items = calculate_number_of_items(data)
+#     example_output = """
+#     Example Output Structure:
+#     [
+#         {
+#             "title": "Vegetarian Tacos",
+#             "ingredients": "Tortillas, Black beans, Corn, Bell peppers, Avocado, Salsa, Lime, Cilantro",
+#             "recipe": "1. Heat tortillas. 2. In a pan, cook black beans and corn with bell peppers. 3. Assemble tacos with beans mixture, avocado slices, salsa, lime, and cilantro."
+#         },
+#         {
+#             "title": "Vegetarian Enchiladas",
+#             "ingredients": "Corn tortillas, Enchilada sauce, Black beans, Corn, Cheese, Onion, Bell peppers",
+#             "recipe": "1. Preheat oven to 350°F. 2. Mix beans, corn, and bell peppers. 3. Fill tortillas with mixture, roll up, and place in baking dish. 4. Pour enchilada sauce over and top with cheese. 5. Bake for 20 minutes."
+#         }
+#     ]
+#     """
+#     template = f"""
+#         You are a meal planner. You are given with user's meal preferences. You need to generate {number_of_items} meal plans based on these preferences.
+#         User's meal preferences :- {input}    
+        
+#     """
+
+#     parser = PydanticOutputParser(pydantic_object=ItemsList)
+
+#     prompt = PromptTemplate(
+#         template="{template}\n{format_instructions}",
+#         input_variables=["template"],
+#         partial_variables={"format_instructions": parser.get_format_instructions()},
+#     )
+
+#     chain = prompt | model | parser
+#     result = chain.invoke({"template":template})
+#     items = result.items
+#     # for item in items:
+#     #     item.source = "gpt"
+
+#     return items
+
 
 # Function to generate items if vector search yields no results
 def generate_items(data: dict, input: str) -> List[Item]:
@@ -114,18 +156,18 @@ def generate_items(data: dict, input: str) -> List[Item]:
     chain = prompt | model | parser
     result = chain.invoke({"template":template})
     items = result.items
-    for item in items:
-        item.source = "gpt"
+
+    # for item in items:
+    #     item.source = "gpt"
+
 
     return items
-
 # Initialize the LLM model (e.g., using OpenAI's GPT-3 or GPT-4)
 model = ChatOpenAI(temperature=0.5, model="gpt-4o")
 
 @app.route('/')
 def home():
     return "Welcome to the Meal Plan Generator API!"
-
 
 @app.route('/generate-meal-plan', methods=['GET'])
 def generate_meal_plan():
@@ -161,6 +203,20 @@ def generate_meal_plan():
     print(response)
     # Return the response as JSON
     return response
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
