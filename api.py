@@ -63,7 +63,7 @@ def vectorsearch(query: str, data: dict) -> str:
 
     similarity_search_results = vector_store.similarity_search_with_score(
         query=query,
-        filter=metadata_filter,
+        #filter=metadata_filter,
         k=number_of_items,
     )
 
