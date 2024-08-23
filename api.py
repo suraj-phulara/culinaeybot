@@ -126,9 +126,23 @@ model = ChatOpenAI(temperature=0.5, model="gpt-4o")
 def home():
     return "Welcome to the Meal Plan Generator API!"
 
-@app.route('/generate-meal-plan', methods=['POST'])
+
+@app.route('/generate-meal-plan', methods=['GET'])
 def generate_meal_plan():
-    data = request.json
+    # data = request.json
+
+    data = {
+        # "mode": request.args.get('mode'),
+        "meal_pln_duration": request.args.get('meal_pln_duration'),
+        "time_for_cooking": request.args.get('time_for_cooking'),
+        "number_of_people": request.args.get('number_of_people'),
+        "Culinary_Preferences": request.args.get('Culinary_Preferences'),
+        "budget_min": request.args.get('budget_min'),
+        "budget_max": request.args.get('budget_max'),
+        "Dietary_Restrictions": request.args.get('Dietary_Restrictions')
+    }
+
+    print(json.dumps(data, indent=4))
 
     # Optimize input
     input = optimised_input(data)
@@ -139,10 +153,33 @@ def generate_meal_plan():
     # Generate items if no results from vector search
     if not items_list:
         items_list = generate_items(data, input)
-        items_list = update_keys(items_list)
+        # items_list = update_keys(items_list)
+        response = {"source":"1", "meal_plan":items_list}
+    else:
+        response = {"source":"2", "meal_plan":items_list}
 
+    print(response)
     # Return the response as JSON
-    return jsonify(items_list)
+    return response
+
+
+
+@app.route('/save-meal-plan', methods=['POST'])
+def save_meal_plan():
+    # Get the JSON data from the POST request
+    data = request.get_json()
+
+    # Print the received data in JSON format
+    print("Received data:")
+    # print()
+    print(json.dumps(data, indent=4))
+
+    # You can add logic here to save the data to a database or perform other operations
+
+    # Return a success message
+    return jsonify({"status": "success", "message": "Meal plan saved successfully!"})
+
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
