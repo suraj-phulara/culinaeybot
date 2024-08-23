@@ -1,0 +1,9 @@
+Flask
+flask-cors
+python-dotenv
+langchain
+langchain-core
+langchain-openai
+langchain-pinecone
+pinecone-client
+pydantic
