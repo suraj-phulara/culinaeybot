@@ -122,6 +122,10 @@ def generate_items(data: dict, input: str) -> List[Item]:
 # Initialize the LLM model (e.g., using OpenAI's GPT-3 or GPT-4)
 model = ChatOpenAI(temperature=0.5, model="gpt-4o")
 
+@app.route('/')
+def home():
+    return "Welcome to the Meal Plan Generator API!"
+
 @app.route('/generate-meal-plan', methods=['POST'])
 def generate_meal_plan():
     data = request.json
