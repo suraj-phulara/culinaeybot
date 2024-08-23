@@ -8,6 +8,7 @@ from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from dotenv import load_dotenv
+from langchain_core.output_parsers import JsonOutputParser
 import json 
 
 app = Flask(__name__)
@@ -137,32 +138,91 @@ def update_keys(items):
 #     return items
 
 
-# Function to generate items if vector search yields no results
-def generate_items(data: dict, input: str) -> List[Item]:
-    number_of_items = calculate_number_of_items(data)
-    template = f"""
-        You are a meal planner. You are given with user's meal preferences. You need to generate {number_of_items} meal plans based on these preferences.
-        User's meal preferences :- {input}
-    """
+# # Function to generate items if vector search yields no results
+# def generate_items(data: dict, input: str) -> List[Item]:
+#     number_of_items = calculate_number_of_items(data)
+#     template = f"""
+#         You are a meal planner. You are given with user's meal preferences. You need to generate {number_of_items} meal plans based on these preferences.
+#         User's meal preferences :- {input}
+#     """
 
-    parser = PydanticOutputParser(pydantic_object=ItemsList)
+#     parser = PydanticOutputParser(pydantic_object=ItemsList)
 
-    prompt = PromptTemplate(
-        template="{template}\n{format_instructions}",
-        input_variables=["template"],
-        partial_variables={"format_instructions": parser.get_format_instructions()},
-    )
+#     prompt = PromptTemplate(
+#         template="{template}\n{format_instructions}",
+#         input_variables=["template"],
+#         partial_variables={"format_instructions": parser.get_format_instructions()},
+#     )
 
-    chain = prompt | model | parser
-    result = chain.invoke({"template":template})
-    items = result.items
+#     chain = prompt | model | parser
+#     result = chain.invoke({"template":template})
+#     items = result.items
+
+#     print("++++++++++++++++++++",result,"++++++++++++++++")
 
     # for item in items:
     #     item.source = "gpt"
 
 
-    return items
+    # return items
 # Initialize the LLM model (e.g., using OpenAI's GPT-3 or GPT-4)
+
+
+
+
+# Function to generate items if vector search yields no results
+def generate_items(data: dict, input: str):
+    number_of_items = calculate_number_of_items(data)
+    
+
+    data = {
+        "items": [
+            {
+                "title": "here you need to give title of the dish",
+                "ingredients": "here will be a list of ingredients that are required for this dish",
+                "recipe": "here will be detailed recipe step by step instructions on how to cook"
+            },
+        ]
+    }
+    
+    
+    template = f"""
+        You are a meal planner. You are given with user's meal preferences. You need to generate {number_of_items} meal plans based on these preferences.
+        User's meal preferences: {input}
+
+        Example Output Structure:
+        {json.dumps(data, indent=4)}
+        
+        Remember, you just have to return an array of objects like the above example.
+        You must always return perfect JSON.
+    """
+
+    # Initialize the parser
+    parser = JsonOutputParser(pydantic_object=ItemsList)
+
+    # Create the prompt template
+    prompt = PromptTemplate(
+        template="Answer the query: {query}\n{format_instructions}",
+        input_variables=["query"],
+        partial_variables={"format_instructions": parser.get_format_instructions()},
+    )
+
+    # Initialize the model
+    # model = OpenAI(model_name="gpt-3.5-turbo-instruct", temperature=0.0)
+
+    # Chain the prompt, model, and parser
+    chain = prompt | model | parser
+    result = chain.invoke({"query": template})
+
+    print("++++++++++++++++++++", result, "++++++++++++++++")
+    
+    items = result["items"]
+    return items
+
+
+
+
+
 model = ChatOpenAI(temperature=0.5, model="gpt-4o")
 
 @app.route('/')
@@ -240,4 +300,3 @@ def save_meal_plan():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
-
