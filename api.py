@@ -187,7 +187,7 @@ def generate_items(data: dict, input: str):
     
     
     template = f"""
-        You are a meal planner. You are given with user's meal preferences. You need to generate {number_of_items} meal plans based on these preferences.
+        You are a meal planner. You are given with user's meal preferences. Based on these preferences, you need to generate {number_of_items} meals for lunch and dinner.
         User's meal preferences: {input}
 
         Example Output Structure:
