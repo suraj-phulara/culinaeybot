@@ -22,25 +22,49 @@ load_dotenv()
 
 pinecone_index_name = os.getenv('INDEX_NAME')
 
-model = ChatOpenAI(temperature=0.5, model="gpt-4")
+model = ChatOpenAI(temperature=1, model="gpt-4o")
 client = OpenAI()
 
 
 # Define the Pydantic model for your data structure
+# class Item(BaseModel):
+#     title: str = Field(description="Title of the Dish")
+#     ingredients: str = Field(description="Ingredients required for the recipe")
+#     recipe: str = Field(description="Detailed recipe for the Dish")
+
+# class ItemsList(BaseModel):
+#     items: List[Item]
+
+# class RecipeItem(BaseModel):
+#     title: str = Field(description="Name of the Recipe")
+#     ingredients: str = Field(description="Ingredients required for the recipe")
+#     instructions: str = Field(description="Detailed step-by-step instructions for the recipe")
+#     tips: str = Field(description="Suggested tips for the recipe")
+#     note: str = Field(description="End message for the recipe")
+
+# class Recipe(BaseModel):
+#     items: List[RecipeItem]
+
+
 class Item(BaseModel):
     title: str = Field(description="Title of the Dish")
-    ingredients: str = Field(description="Ingredients required for the recipe")
-    recipe: str = Field(description="Detailed recipe for the Dish")
+    ingredients: List[str] = Field(description="Ingredients required for the recipe")
+    recipe: List[str] = Field(description="Detailed recipe for the Dish")
 
 class ItemsList(BaseModel):
     items: List[Item]
 
-class Recipe(BaseModel):
+class RecipeItem(BaseModel):
     title: str = Field(description="Name of the Recipe")
-    ingredients: str = Field(description="Ingredients required for the recipe")
-    instructions: str = Field(description="Detailed step-by-step instructions for the recipe")
-    tips: str = Field(description="Suggested tips for the recipe")
-    note: str = Field(description="End message for the recipe")
+    ingredients: List[str] = Field(description="Ingredients required for the recipe")
+    instructions: List[str] = Field(description="Detailed step-by-step instructions for the recipe")
+    tips: List[str] = Field(description="Suggested tips for the recipe")
+    note: List[str] = Field(description="End message for the recipe")
+
+class Recipe(BaseModel):
+    items: List[RecipeItem]
+
+
 
 def image_to_base64(image_url):
     response = requests.get(image_url)
@@ -78,41 +102,93 @@ def extract_ingredients(image_base64):
 
     return response.choices[0].message.content
 
-def generate_recipe(ingredients):
+def generate_recipe(ingredients: str, total_recipe):
     # Setup the parser
     parser = JsonOutputParser(pydantic_object=Recipe)
 
-    # Define the prompt template
-    prompt_template = PromptTemplate(
-        template="""Generate a unique and delicious recipe using the following set of ingredients: {ingredients}. 
+    # Define the format instructions
+    format_instructions = parser.get_format_instructions()
+
+    # Create the prompt template
+    prompt = PromptTemplate(
+        template="""
+        Generate a list of unique and delicious recipe using the following set of ingredients: {ingredients}.
+
         Craft a step-by-step cooking guide, including instructions on preparation, cooking techniques, and any additional seasonings or garnishes.
         Be creative and provide tips for enhancing flavors. Consider dietary preferences or restrictions if specified.
         Feel free to suggest variations or substitutions to accommodate different tastes.
-        Example Output Structure:
-        {example_output}
-        """,
-        input_variables=['ingredients'],
-        partial_variables={"example_output": json.dumps({
-            "items": [
-                {
-                    "title": "Name of the Recipe",
-                    "ingredients": "Ingredients required for the recipe",
-                    "instructions": "Detailed step-by-step instructions for the recipe",
-                    "tips": "Suggested tips for the recipe",
-                    "note": "End message for the recipe"
-                },
-            ]
-        }, indent=4)}
-    )
 
-    # Create the chain
-    recipe_chain = prompt_template | model
+        provide with me with proper complete recipe
+
+
+        \n\n
+        give me a total of strictly {total_recipe} recipes (important)
+
+
+        \n\n
+        {format_instructions}
+        """,
+
+        input_variables=["ingredients","total_recipe"],
+        partial_variables={"format_instructions": format_instructions},
+    )
+    print("-----------------------------------",total_recipe,"--------------------------------------------")
+
+    # Create the chain (assuming `model` is an instance of a language model that you are using)
+    recipe_chain = prompt | model | parser
 
     # Pass the ingredients to the LLM chain to generate a recipe
-    recipe_response = recipe_chain.invoke({"ingredients": ingredients})
+    recipe_response = recipe_chain.invoke({"ingredients": ingredients, "total_recipe":total_recipe})
 
     # Parse the output into the Recipe model
-    return recipe_response
+    # parsed_recipe = parser.parse(recipe_response)
+    # print("+++++++++++++",recipe_response["items"],"+++++++++++++")
+
+    return recipe_response["items"]
+
+
+# Example usage
+# ingredients = "Tomatoes, Basil, Garlic, Olive Oil"
+# recipe = generate_recipe(ingredients)
+# print(recipe)
+
+# def generate_recipe(ingredients):
+#     # Setup the parser
+#     parser = JsonOutputParser(pydantic_object=Recipe)
+
+#     # Define the prompt template
+#     prompt_template = PromptTemplate(
+#         template="""Generate a unique and delicious recipe using the following set of ingredients: {ingredients}. 
+#         Craft a step-by-step cooking guide, including instructions on preparation, cooking techniques, and any additional seasonings or garnishes.
+#         Be creative and provide tips for enhancing flavors. Consider dietary preferences or restrictions if specified.
+#         Feel free to suggest variations or substitutions to accommodate different tastes.
+#         Example Output Structure:
+#         {example_output}
+#         """,
+#         input_variables=['ingredients'],
+#         partial_variables={"example_output": json.dumps({
+#             "items": [
+#                 {
+#                     "title": "Name of the Recipe",
+#                     "ingredients": "Ingredients required for the recipe",
+#                     "instructions": "Detailed step-by-step instructions for the recipe",
+#                     "tips": "Suggested tips for the recipe",
+#                     "note": "End message for the recipe"
+#                 },
+#             ]
+#         }, indent=4)}
+#     )
+
+#     # Create the chain
+#     recipe_chain = prompt_template | model
+
+#     # Pass the ingredients to the LLM chain to generate a recipe
+#     recipe_response = recipe_chain.invoke({"ingredients": ingredients})
+
+#     # Parse the output into the Recipe model
+#     return recipe_response
+
+
 # Function to calculate the number of items based on meal plan duration
 def calculate_number_of_items(data: dict) -> int:
     meal_pln_duration = int(data.get("meal_pln_duration", "0").split('_')[0])
@@ -146,7 +222,7 @@ def vectorsearch(query: str, data: dict) -> str:
     metadata_filter = {
         "_iky_recipes_makes": {"$gte": number_of_people},
         "_iky_recipes_cooking_time": {"$lte": time_for_cooking},
-        "category_name": {category_name}
+        # "category_name": {category_name}
     }
 
     similarity_search_results = vector_store.similarity_search_with_score(
@@ -173,28 +249,23 @@ def vectorsearch(query: str, data: dict) -> str:
     return response
 
 # Function to generate items if vector search yields no results
-def generate_items(data: dict, input: str):
+def generate_items(data: dict, input: str, total_recipe):
     number_of_items = calculate_number_of_items(data)
     
-    data = {
-        "items": [
-            {
-                "title": "here you need to give title of the dish",
-                "ingredients": "here will be a list of ingredients that are required for this dish",
-                "recipe": "here will be detailed recipe step by step instructions on how to cook"
-            },
-        ]
-    }
+    # data = {
+    #     "items": [
+    #         {
+    #             "title": "here you need to give title of the dish",
+    #             "ingredients": "here will be a list of ingredients that are required for this dish",
+    #             "recipe": "here will be detailed recipe step by step instructions on how to cook"
+    #         },
+    #     ]
+    # }
     
     template = f"""
         You are a meal planner. You are given with user's meal preferences. Based on these preferences, you need to generate {number_of_items} meals for lunch and dinner.
         User's meal preferences: {input}
-
-        Example Output Structure:
-        {json.dumps(data, indent=4)}
         
-        Remember, you just have to return an array of objects like the above example.
-        You must always return perfect JSON.
     """
 
     # Initialize the parser
@@ -216,13 +287,16 @@ def generate_items(data: dict, input: str):
 
 # Function to divide items into days
 def divide_into_days(items, days: int):
+    print(items)
+    print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
     days_meal_plan = {}
-    items_per_day = len(items) // days
+    items_per_day = max(1, len(items) // days)  # Ensure at least one item per day if items exist
 
     for day in range(1, days + 1):
         start_index = (day - 1) * items_per_day
         end_index = start_index + items_per_day
-        days_meal_plan[f"Day {day}"] = items[start_index:end_index]
+        # Avoid out-of-bounds error if there are fewer items than needed
+        days_meal_plan[f"Day {day}"] = items[start_index:end_index] if start_index < len(items) else []
 
     return days_meal_plan
 
@@ -232,32 +306,33 @@ def home():
 
 @app.route('/generate-meal-plan', methods=['GET'])
 def generate_meal_plan():
-    data = request.json
-    # data = {
-    #     "meal_pln_duration": request.args.get('meal_pln_duration'),
-    #     "time_for_cooking": request.args.get('time_for_cooking'),
-    #     "number_of_people": request.args.get('number_of_people'),
-    #     "Culinary_Preferences": request.args.get('Culinary_Preferences'),
-    #     "budget_min": request.args.get('budget_min'),
-    #     "budget_max": request.args.get('budget_max'),
-    #     "Dietary_Restrictions": request.args.get('Dietary_Restrictions'),
-    #     "uploaded_image": request.args.get("uploaded_image")
-    # }
+    # data = request.json
+    data = {
+        "meal_pln_duration": request.args.get('meal_pln_duration'),
+        "time_for_cooking": request.args.get('time_for_cooking'),
+        "number_of_people": request.args.get('number_of_people'),
+        "Culinary_Preferences": request.args.get('Culinary_Preferences'),
+        "budget_min": request.args.get('budget_min'),
+        "budget_max": request.args.get('budget_max'),
+        "Dietary_Restrictions": request.args.get('Dietary_Restrictions'),
+        # "uploaded_image": "",
+        "uploaded_image": request.args.get("image_url","")
+    }
 
     print(json.dumps(data, indent=4))
 
     # Check if uploaded image has data
-    if data.get("uploaded_image"):
+    if data.get("uploaded_image", ""):
         # Extract ingredients from the image
         image_base64 = image_to_base64(data["uploaded_image"])
         ingredients = extract_ingredients(image_base64)
 
         # Generate a recipe using the extracted ingredients
-        recipe = generate_recipe(ingredients)
+        recipe = generate_recipe(ingredients, int(data.get('meal_pln_duration', 1))*2)
 
         response = {
             "source": "3",
-            "recipe": recipe.content,
+            "meal_plan": recipe,
         }
     else:
         # Optimize input
@@ -268,16 +343,20 @@ def generate_meal_plan():
 
         # Generate items if no results from vector search
         if not items_list:
-            items_list = generate_items(data, input)
+            items_list = generate_items(data, input, int(data.get('meal_pln_duration', 1))*2)
+            response = {"source":"1", "meal_plan":items_list}
+        else:
+            response = {"source":"2", "meal_plan":items_list}
 
         # Divide items into days
-        days_meal_plan = divide_into_days(items_list, int(data.get('meal_pln_duration', 1)))
+    days_meal_plan = divide_into_days(response["meal_plan"], int(data.get('meal_pln_duration', 1)))
+    response["meal_plan"] = days_meal_plan
 
-        response = {"source": "1" if not items_list else "2", "meal_plan": days_meal_plan}
+        # response = {"source": "1" if not items_list else "2", "meal_plan": days_meal_plan}
 
     print(response)
     # Return the response as JSON
-    return jsonify(response)
+    return response
 
 @app.route('/save-meal-plan', methods=['POST'])
 def save_meal_plan():
