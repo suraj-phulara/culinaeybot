@@ -14,6 +14,8 @@ from langchain_core.output_parsers import JsonOutputParser
 import json
 from openai import OpenAI
 
+import mysql.connector
+
 app = Flask(__name__)
 CORS(app)  # Enable CORS for the entire app
 
