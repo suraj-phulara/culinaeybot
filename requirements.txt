@@ -7,3 +7,6 @@ langchain-openai
 langchain-pinecone
 pinecone-client
 pydantic
+
+mysql-connector-python
+
