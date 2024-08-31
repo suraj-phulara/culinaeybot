@@ -358,83 +358,93 @@ def generate_meal_plan():
     # Return the response as JSON
     return response
 
-
 @app.route('/save-meal-plan', methods=['POST'])
 def save_meal_plan():
-
-
-    db = mysql.connector.connect(
-        host="",
-        port=,
-        user="",
-        password="",
-        database=""
+    # Connect to the database
+    try:
+        db = mysql.connector.connect(
+            host="",
+            port=,
+            user="",
+            password="",
+            database=""
         )
+    except mysql.connector.Error as err:
+        return jsonify({"status": "error", "message": str(err)}), 500
 
     data = request.get_json()
-    user_id = data.get('user_id')
-    meal_plan = data.get('meal_plan')
     
-    # Additional fields
-    meal_plan_duration = data.get('meal_plan_duration')
-    time_for_cooking = data.get('time_for_cooking')
-    number_of_people = data.get('number_of_people')
-    culinary_preferences = data.get('culinary_preferences')
-    budget_min = data.get('budget_min')
-    budget_max = data.get('budget_max')
-    dietary_restrictions = data.get('dietary_restrictions')
+    user_id = data.get('userID')
+    meal_plan_name = data.get('mealPlanName')
+    meal_plan = data.get('mealPlanData')
 
     cursor = db.cursor()
 
-    # Insert the meal plan along with additional data into the MealPlans table
-    cursor.execute("""
-        INSERT INTO MealPlans (meal_plan_json, meal_plan_duration, time_for_cooking, number_of_people, culinary_preferences, budget_min, budget_max, dietary_restrictions)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    """, (json.dumps(meal_plan), meal_plan_duration, time_for_cooking, number_of_people, culinary_preferences, budget_min, budget_max, dietary_restrictions))
-    
-    meal_plan_id = cursor.lastrowid
+    try:
+        # Insert the meal plan name and data into the MealPlans table
+        cursor.execute("""
+            INSERT INTO MealPlans (meal_plan_name, meal_plan_json)
+            VALUES (%s, %s)
+        """, (meal_plan_name, json.dumps(meal_plan)))
+        
+        meal_plan_id = cursor.lastrowid
 
-    # Map the meal plan to the user in the UsersMealPlans table
-    cursor.execute("INSERT INTO UsersMealPlans (user_id, meal_plan_id) VALUES (%s, %s)", (user_id, meal_plan_id))
+        # Map the meal plan to the user in the UsersMealPlans table
+        cursor.execute("INSERT INTO UsersMealPlans (user_id, meal_plan_id) VALUES (%s, %s)", (user_id, meal_plan_id))
 
-    # Commit the transaction
-    db.commit()
+        # Commit the transaction
+        db.commit()
 
-    return jsonify({"status": "success", "message": "Meal plan saved successfully!"})
+        return jsonify({"status": "success", "message": "Meal plan saved successfully!"})
 
+    except mysql.connector.Error as err:
+        db.rollback()
+        return jsonify({"status": "error", "message": str(err)}), 500
+
+    finally:
+        cursor.close()
+        db.close()
 
 @app.route('/your-meal-plan', methods=['GET'])
 def get_meal_plan():
-    # Extract user_id from request parameters
-    user_id = request.args.get('user_id')
-    
+    user_id = request.args.get('userID')
+
     # Connect to the database
-    db = mysql.connector.connect(
-        host="",
-        port=,
-        user="",
-        password="",
-        database=""
-    )
+    try:
+        db = mysql.connector.connect(
+            host="",
+            port=,
+            user="",
+            password="",
+            database=""
+        )
+    except mysql.connector.Error as err:
+        return jsonify({"status": "error", "message": str(err)}), 500
     
     cursor = db.cursor(dictionary=True)
-    
-    # Retrieve meal plans associated with the user_id
-    cursor.execute("""
-        SELECT mp.meal_plan_json, mp.meal_plan_duration, mp.time_for_cooking, mp.number_of_people, 
-               mp.culinary_preferences, mp.budget_min, mp.budget_max, mp.dietary_restrictions
-        FROM MealPlans mp
-        JOIN UsersMealPlans ump ON mp.id = ump.meal_plan_id
-        WHERE ump.user_id = %s
-    """, (user_id,))
-    
-    meal_plans = cursor.fetchall()
-    
-    if not meal_plans:
-        return jsonify({"status": "error", "message": "No meal plans found for the given user_id"}), 404
-    
-    return jsonify({"status": "success", "meal_plans": meal_plans})
 
+    try:
+        # Retrieve meal plans associated with the user_id
+        cursor.execute("""
+            SELECT mp.meal_plan_name, mp.meal_plan_json
+            FROM MealPlans mp
+            JOIN UsersMealPlans ump ON mp.id = ump.meal_plan_id
+            WHERE ump.user_id = %s
+        """, (user_id,))
+        
+        meal_plans = cursor.fetchall()
+
+        if not meal_plans:
+            return jsonify({"status": "error", "message": "No meal plans found for the given user_id"}), 404
+        
+        return jsonify({"status": "success", "meal_plans": meal_plans})
+
+    except mysql.connector.Error as err:
+        return jsonify({"status": "error", "message": str(err)}), 500
+
+    finally:
+        cursor.close()
+        db.close()
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
