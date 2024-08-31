@@ -438,6 +438,9 @@ def get_meal_plan():
 
         if not meal_plans:
             return jsonify({"status": "error", "message": "No meal plans found for the given user_id"}), 404
+
+        for meal_plan in meal_plans:
+            meal_plan['meal_plan_json'] = json.loads(meal_plan['meal_plan_json'])
         
         return jsonify({"status": "success", "meal_plans": meal_plans})
 
