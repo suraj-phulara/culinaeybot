@@ -358,14 +358,83 @@ def generate_meal_plan():
     # Return the response as JSON
     return response
 
+
 @app.route('/save-meal-plan', methods=['POST'])
 def save_meal_plan():
-    data = request.get_json()
 
-    print("Received data:")
-    print(json.dumps(data, indent=4))
+
+    db = mysql.connector.connect(
+        host="",
+        port=,
+        user="",
+        password="",
+        database=""
+        )
+
+    data = request.get_json()
+    user_id = data.get('user_id')
+    meal_plan = data.get('meal_plan')
+    
+    # Additional fields
+    meal_plan_duration = data.get('meal_plan_duration')
+    time_for_cooking = data.get('time_for_cooking')
+    number_of_people = data.get('number_of_people')
+    culinary_preferences = data.get('culinary_preferences')
+    budget_min = data.get('budget_min')
+    budget_max = data.get('budget_max')
+    dietary_restrictions = data.get('dietary_restrictions')
+
+    cursor = db.cursor()
+
+    # Insert the meal plan along with additional data into the MealPlans table
+    cursor.execute("""
+        INSERT INTO MealPlans (meal_plan_json, meal_plan_duration, time_for_cooking, number_of_people, culinary_preferences, budget_min, budget_max, dietary_restrictions)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    """, (json.dumps(meal_plan), meal_plan_duration, time_for_cooking, number_of_people, culinary_preferences, budget_min, budget_max, dietary_restrictions))
+    
+    meal_plan_id = cursor.lastrowid
+
+    # Map the meal plan to the user in the UsersMealPlans table
+    cursor.execute("INSERT INTO UsersMealPlans (user_id, meal_plan_id) VALUES (%s, %s)", (user_id, meal_plan_id))
+
+    # Commit the transaction
+    db.commit()
 
     return jsonify({"status": "success", "message": "Meal plan saved successfully!"})
+
+
+@app.route('/your-meal-plan', methods=['GET'])
+def get_meal_plan():
+    # Extract user_id from request parameters
+    user_id = request.args.get('user_id')
+    
+    # Connect to the database
+    db = mysql.connector.connect(
+        host="",
+        port=,
+        user="",
+        password="",
+        database=""
+    )
+    
+    cursor = db.cursor(dictionary=True)
+    
+    # Retrieve meal plans associated with the user_id
+    cursor.execute("""
+        SELECT mp.meal_plan_json, mp.meal_plan_duration, mp.time_for_cooking, mp.number_of_people, 
+               mp.culinary_preferences, mp.budget_min, mp.budget_max, mp.dietary_restrictions
+        FROM MealPlans mp
+        JOIN UsersMealPlans ump ON mp.id = ump.meal_plan_id
+        WHERE ump.user_id = %s
+    """, (user_id,))
+    
+    meal_plans = cursor.fetchall()
+    
+    if not meal_plans:
+        return jsonify({"status": "error", "message": "No meal plans found for the given user_id"}), 404
+    
+    return jsonify({"status": "success", "meal_plans": meal_plans})
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
