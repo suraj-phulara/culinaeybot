@@ -61,7 +61,7 @@ class RecipeItem(BaseModel):
     ingredients: List[str] = Field(description="Ingredients required for the recipe")
     instructions: List[str] = Field(description="Detailed step-by-step instructions for the recipe")
     tips: List[str] = Field(description="Suggested tips for the recipe")
-    note: List[str] = Field(description="End message for the recipe")
+    # note: List[str] = Field(description="End message for the recipe")
 
 class Recipe(BaseModel):
     items: List[RecipeItem]
