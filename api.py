@@ -173,6 +173,7 @@ def vectorsearch(query: str, data: dict) -> str:
                 "title": doc.metadata.get("post_title"),
                 "url": doc.metadata.get("guid"),
                 "image": doc.metadata.get("essb_cached_image"),
+                "video": doc.metadata.get("_iky_recipes_video"),
             }
             for doc, score in similarity_search_results
         ]
