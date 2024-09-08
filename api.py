@@ -27,27 +27,6 @@ pinecone_index_name = os.getenv('INDEX_NAME')
 model = ChatOpenAI(temperature=1, model="gpt-4o")
 client = OpenAI()
 
-
-# Define the Pydantic model for your data structure
-# class Item(BaseModel):
-#     title: str = Field(description="Title of the Dish")
-#     ingredients: str = Field(description="Ingredients required for the recipe")
-#     recipe: str = Field(description="Detailed recipe for the Dish")
-
-# class ItemsList(BaseModel):
-#     items: List[Item]
-
-# class RecipeItem(BaseModel):
-#     title: str = Field(description="Name of the Recipe")
-#     ingredients: str = Field(description="Ingredients required for the recipe")
-#     instructions: str = Field(description="Detailed step-by-step instructions for the recipe")
-#     tips: str = Field(description="Suggested tips for the recipe")
-#     note: str = Field(description="End message for the recipe")
-
-# class Recipe(BaseModel):
-#     items: List[RecipeItem]
-
-
 class Item(BaseModel):
     title: str = Field(description="Title of the Dish")
     ingredients: List[str] = Field(description="Ingredients required for the recipe")
@@ -61,7 +40,6 @@ class RecipeItem(BaseModel):
     ingredients: List[str] = Field(description="Ingredients required for the recipe")
     instructions: List[str] = Field(description="Detailed step-by-step instructions for the recipe")
     tips: List[str] = Field(description="Suggested tips for the recipe")
-    # note: List[str] = Field(description="End message for the recipe")
 
 class Recipe(BaseModel):
     items: List[RecipeItem]
@@ -81,7 +59,6 @@ def image_to_base64(image_url):
 def extract_ingredients(image_base64):
     prompt = "You are a meal planner bot. Your task is to analyze the image to recognize the list of ingredients in the image."
     
-    # Create the request to generate a textual description of the image
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -134,7 +111,6 @@ def generate_recipe(ingredients: str, total_recipe):
         input_variables=["ingredients","total_recipe"],
         partial_variables={"format_instructions": format_instructions},
     )
-    print("-----------------------------------",total_recipe,"--------------------------------------------")
 
     # Create the chain (assuming `model` is an instance of a language model that you are using)
     recipe_chain = prompt | model | parser
@@ -142,53 +118,8 @@ def generate_recipe(ingredients: str, total_recipe):
     # Pass the ingredients to the LLM chain to generate a recipe
     recipe_response = recipe_chain.invoke({"ingredients": ingredients, "total_recipe":total_recipe})
 
-    # Parse the output into the Recipe model
-    # parsed_recipe = parser.parse(recipe_response)
-    # print("+++++++++++++",recipe_response["items"],"+++++++++++++")
 
     return recipe_response["items"]
-
-
-# Example usage
-# ingredients = "Tomatoes, Basil, Garlic, Olive Oil"
-# recipe = generate_recipe(ingredients)
-# print(recipe)
-
-# def generate_recipe(ingredients):
-#     # Setup the parser
-#     parser = JsonOutputParser(pydantic_object=Recipe)
-
-#     # Define the prompt template
-#     prompt_template = PromptTemplate(
-#         template="""Generate a unique and delicious recipe using the following set of ingredients: {ingredients}. 
-#         Craft a step-by-step cooking guide, including instructions on preparation, cooking techniques, and any additional seasonings or garnishes.
-#         Be creative and provide tips for enhancing flavors. Consider dietary preferences or restrictions if specified.
-#         Feel free to suggest variations or substitutions to accommodate different tastes.
-#         Example Output Structure:
-#         {example_output}
-#         """,
-#         input_variables=['ingredients'],
-#         partial_variables={"example_output": json.dumps({
-#             "items": [
-#                 {
-#                     "title": "Name of the Recipe",
-#                     "ingredients": "Ingredients required for the recipe",
-#                     "instructions": "Detailed step-by-step instructions for the recipe",
-#                     "tips": "Suggested tips for the recipe",
-#                     "note": "End message for the recipe"
-#                 },
-#             ]
-#         }, indent=4)}
-#     )
-
-#     # Create the chain
-#     recipe_chain = prompt_template | model
-
-#     # Pass the ingredients to the LLM chain to generate a recipe
-#     recipe_response = recipe_chain.invoke({"ingredients": ingredients})
-
-#     # Parse the output into the Recipe model
-#     return recipe_response
 
 
 # Function to calculate the number of items based on meal plan duration
@@ -254,16 +185,6 @@ def vectorsearch(query: str, data: dict) -> str:
 def generate_items(data: dict, input: str, total_recipe):
     number_of_items = calculate_number_of_items(data)
     
-    # data = {
-    #     "items": [
-    #         {
-    #             "title": "here you need to give title of the dish",
-    #             "ingredients": "here will be a list of ingredients that are required for this dish",
-    #             "recipe": "here will be detailed recipe step by step instructions on how to cook"
-    #         },
-    #     ]
-    # }
-    
     template = f"""
         You are a meal planner. You are given with user's meal preferences. Based on these preferences, you need to generate {number_of_items} meals for lunch and dinner.
         User's meal preferences: {input}
@@ -290,7 +211,6 @@ def generate_items(data: dict, input: str, total_recipe):
 # Function to divide items into days
 def divide_into_days(items, days: int):
     print(items)
-    print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
     days_meal_plan = {}
     items_per_day = max(1, len(items) // days)  # Ensure at least one item per day if items exist
 
@@ -317,7 +237,6 @@ def generate_meal_plan():
         "budget_min": request.args.get('budget_min'),
         "budget_max": request.args.get('budget_max'),
         "Dietary_Restrictions": request.args.get('Dietary_Restrictions'),
-        # "uploaded_image": "",
         "uploaded_image": request.args.get("image_url","")
     }
 
