@@ -428,7 +428,7 @@ def get_meal_plan():
     try:
         # Retrieve meal plans associated with the user_id
         cursor.execute("""
-            SELECT mp.meal_plan_name, mp.meal_plan_json
+            SELECT mp.id, mp.meal_plan_name, mp.meal_plan_json, mp.created_at
             FROM MealPlans mp
             JOIN UsersMealPlans ump ON mp.id = ump.meal_plan_id
             WHERE ump.user_id = %s
@@ -450,6 +450,81 @@ def get_meal_plan():
     finally:
         cursor.close()
         db.close()
+
+
+@app.route('/get-meal-plan/<int:meal_plan_id>', methods=['GET'])
+def get_meal_plan(meal_plan_id):
+    # Connect to the database
+    try:
+        db = mysql.connector.connect(
+            host="185.197.195.151",
+            port=3306,
+            user="external",
+            password="/sK&?R,D5omh",
+            database="iky"
+        )
+    except mysql.connector.Error as err:
+        return jsonify({"status": "error", "message": str(err)}), 500
+
+    cursor = db.cursor(dictionary=True)
+
+    try:
+        # Retrieve the meal plan based on meal_plan_id
+        cursor.execute("SELECT * FROM MealPlans WHERE id = %s", (meal_plan_id,))
+        meal_plan = cursor.fetchone()
+
+        # Check if meal plan exists
+        if not meal_plan:
+            return jsonify({"status": "error", "message": "Meal plan not found"}), 404
+
+        return jsonify({"status": "success", "meal_plan": meal_plan})
+
+    except mysql.connector.Error as err:
+        return jsonify({"status": "error", "message": str(err)}), 500
+
+    finally:
+        cursor.close()
+        db.close()
+
+
+
+@app.route('/delete-meal-plan/<int:meal_plan_id>', methods=['DELETE'])
+def delete_meal_plan(meal_plan_id):
+    # Connect to the database
+    try:
+        db = mysql.connector.connect(
+            host="185.197.195.151",
+            port=3306,
+            user="external",
+            password="/sK&?R,D5omh",
+            database="iky"
+        )
+    except mysql.connector.Error as err:
+        return jsonify({"status": "error", "message": str(err)}), 500
+
+    cursor = db.cursor()
+
+    try:
+        # Check if the meal plan exists before deleting
+        cursor.execute("SELECT * FROM MealPlans WHERE id = %s", (meal_plan_id,))
+        meal_plan = cursor.fetchone()
+
+        if not meal_plan:
+            return jsonify({"status": "error", "message": "Meal plan not found"}), 404
+
+        # Delete the meal plan from the database
+        cursor.execute("DELETE FROM MealPlans WHERE id = %s", (meal_plan_id,))
+        db.commit()
+
+        return jsonify({"status": "success", "message": "Meal plan deleted successfully"})
+
+    except mysql.connector.Error as err:
+        return jsonify({"status": "error", "message": str(err)}), 500
+
+    finally:
+        cursor.close()
+        db.close()
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
